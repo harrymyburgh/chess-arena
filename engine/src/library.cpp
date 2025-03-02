@@ -9,4 +9,9 @@ void test() {
     auto board = Board();
     std::cout << board.to_string() << std::endl;
     std::cout << board.to_string() << std::endl;
+    auto out = board.find_piece(Piece{PieceType::KING, true});
+    for (const auto& pair : out) {
+        std::cout << "(" << pair.first << ", " << pair.second << ") ";
+    }
+    std::cout << std::endl;
 }
