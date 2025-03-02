@@ -32,10 +32,12 @@ class Board:
                      If None, uses standard chess starting position.
         """
         self.board: List[List[str]] = position or self._default_board()
-        self.turn: str = 'white'
+        self.white_turn: bool = True
         self.castling: Dict[str, bool] = {'K': True, 'Q': True, 'k': True,
                                           'q': True}
-        self.en_passant: Optional[str] = None
+        self.white_in_check: bool = False
+        self.black_in_check: bool = False
+        self.en_passant: Optional[Tuple[int, int]] = None
         self.halfmove_clock: int = 0
         self.fullmove_number: int = 1
 
@@ -86,7 +88,7 @@ class Board:
         """
         board_str = ''.join(''.join(row) for row in self.board)
         return (f"<Board position='{board_str}' "
-                f"turn='{self.turn}' "
+                f"turn='{"white" if self.white_turn else "black"}' "
                 f"castling={self.castling} "
                 f"en_passant={self.en_passant} "
                 f"halfmove={self.halfmove_clock} "
@@ -124,6 +126,80 @@ class Board:
         self.board[src_row][src_col] = '.'
         self.board[dst_row][dst_col] = piece
 
+    def make_move(self, move: Move) -> None:
+
+        # Extract source and target coordinates
+        src_row, src_col = move.source
+        dst_row, dst_col = move.target
+
+        # Checking if move is valid
+        valid_moves = self.get_valid_moves(move.source)
+        if move.target not in valid_moves or self.board[src_row][
+            src_col] == '.' or self.board[src_row][
+            src_col].isupper() != self.white_turn:
+            raise ValueError(f"Invalid move: {move}. ")
+
+        # Setting en passant target
+        pawn_start_row = 6 if self.white_turn else 1
+        pawn_two_move_row = 4 if self.white_turn else 3
+        if self.board[src_row][
+            src_col].upper() == 'P' and src_row == pawn_start_row and dst_row == pawn_two_move_row:
+            self.en_passant = (
+                src_row - 1 if self.white_turn else src_row + 1, src_col)
+        else:
+            self.en_passant = None
+
+        # Verifying castling rights
+        king_pos = self.find('K')[0] if self.white_turn else self.find('k')[0]
+        if king_pos == move.source:
+            self.castling['K' if self.white_turn else 'k'] = False
+            self.castling['Q' if self.white_turn else 'q'] = False
+
+        queen_rook_pos = (7, 0) if self.white_turn else (0, 0)
+        if self.board[src_row][
+            src_col].upper() == 'R' and move.source == queen_rook_pos:
+            self.castling['Q' if self.white_turn else 'q'] = False
+
+        king_rook_pos = (7, 7) if self.white_turn else (0, 7)
+        if self.board[src_row][
+            src_col].upper() == 'R' and move.source == king_rook_pos:
+            self.castling['K' if self.white_turn else 'k'] = False
+
+        # Applying the move
+        self.make_raw_move(move)
+
+        # Player just moved so they must not be in check
+        if self.white_turn:
+            self.white_in_check = False
+        else:
+            self.black_in_check = False
+
+        # Set the half move clock
+        if self.board[src_row][src_col].upper() == 'P' or \
+                self.board[dst_row][dst_col].upper() != '.':
+            self.halfmove_clock = 0
+        else:
+            self.halfmove_clock += 1
+
+        # Set the full move number
+        if not self.white_turn:
+            self.fullmove_number += 1
+
+        # Change the player's turn
+        self.white_turn = not self.white_turn
+
+        # Check if the new player is in check
+        if self.white_turn:
+            self.white_in_check = self.in_check(self.white_turn)
+        else:
+            self.black_in_check = self.in_check(self.white_turn)
+
+        # TODO: Checkmate Check
+
+        # TODO: Stalemate Check
+
+
+# TODO filer valid moves if in check
     def get_valid_moves(
             self, pos: Tuple[int, int],
             attack_moves_only: bool = False,
@@ -159,13 +235,6 @@ class Board:
         def is_inside(r: int, c: int) -> bool:
             return 0 <= r < 8 and 0 <= c < 8
 
-        # Helper function to convert an algebraic coordinate (e.g. "e3") used for en passant
-        # into board indices.
-        def algebraic_to_index(coord: str) -> Tuple[int, int]:
-            file = coord[0]  # letter from 'a' to 'h'
-            rank = int(coord[1])  # rank 1..8
-            return (8 - rank, ord(file) - ord('a'))
-
         # ----------------------- Pawn Moves -----------------------
         if piece.upper() == 'P':
             # For white pawns, they move upward (i.e. decreasing row index);
@@ -194,8 +263,8 @@ class Board:
                         moves.append((new_r, new_c))
                     # Check en passant: if en_passant is set and matches the candidate square.
                     if self.en_passant:
-                        ep_r, ep_c = algebraic_to_index(self.en_passant)
-                        if new_r == ep_r and new_c == ep_c:
+                        if new_r == self.en_passant[0] and new_c == \
+                                self.en_passant[1]:
                             moves.append((new_r, new_c))
 
         # ----------------------- Knight Moves -----------------------
