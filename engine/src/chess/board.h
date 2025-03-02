@@ -12,13 +12,16 @@ class Board {
 public:
     Board();
 
-    [[nodiscard]] Piece get_piece(const int &row, const int &col) const;
+    [[nodiscard]] Piece get_piece(const std::pair<int, int> &pos) const;
 
-    void set_piece(const int &row, const int &col, Piece piece);
+    void set_piece(const std::pair<int, int> & pos, const Piece &piece);
 
     [[nodiscard]] std::string to_string() const;
 
-    void make_raw_move(const int &src_row, const int &src_col, const int &dst_row, const int &dst_col);
+    void make_raw_move(const std::pair<int, int> &src_pos,
+                       const std::pair<int, int> &dst_pos);
+
+    [[nodiscard]] std::vector<std::pair<int, int> > find_piece(const Piece &piece) const;
 
 private:
     std::array<std::array<Piece, BOARD_SIZE>, BOARD_SIZE> board{};

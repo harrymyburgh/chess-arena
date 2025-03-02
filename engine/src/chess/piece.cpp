@@ -28,3 +28,6 @@ bool Piece::is_empty() const {
     return false;
 }
 
+bool Piece::operator==(const Piece &other) const {
+    return std::tie(type, isWhite) == std::tie(other.type, isWhite);
+}

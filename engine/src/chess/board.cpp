@@ -1,5 +1,7 @@
-#include "board.h"
 #include <algorithm>
+#include <vector>
+
+#include "board.h"
 
 Board::Board() {
     // Initialize to be empty
@@ -24,28 +26,29 @@ Board::Board() {
     std::ranges::fill(board[6], Piece{PieceType::PAWN, true});
 }
 
-Piece Board::get_piece(const int &row, const int &col) const {
-    if (row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE) {
-        return board[row][col];
+Piece Board::get_piece(const std::pair<int, int> &pos) const {
+    if (pos.first >= 0 && pos.first < BOARD_SIZE && pos.second >= 0 && pos.
+        second < BOARD_SIZE) {
+        return board[pos.first][pos.second];
     }
     const std::string error_msg =
-            "Invalid row or col specified (board size: " +
+            "Invalid row or column specified (board size: " +
             std::to_string(BOARD_SIZE) + "x" + std::to_string(BOARD_SIZE) + ")";
     throw std::out_of_range(error_msg);
 }
 
-void Board::set_piece(const int &row, const int &col, const Piece piece) {
-    if (row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE) {
-        board[row][col] = piece;
+void Board::set_piece(const std::pair<int, int> &pos, const Piece &piece) {
+    if (pos.first >= 0 && pos.first < BOARD_SIZE && pos.second >= 0 && pos.
+        second < BOARD_SIZE) {
+        board[pos.first][pos.second] = piece;
     } else {
         const std::string error_msg =
-                "Invalid row or col specified (board size: " +
+                "Invalid row or column specified (board size: " +
                 std::to_string(BOARD_SIZE) + "x" + std::to_string(BOARD_SIZE) +
                 ")";
         throw std::out_of_range(error_msg);
     }
 }
-
 
 std::string Board::to_string() const {
     std::string result = "  ┌";
@@ -81,13 +84,17 @@ std::string Board::to_string() const {
     return result;
 }
 
-void Board::make_raw_move(const int &src_row, const int &src_col,
-                          const int &dst_row, const int &dst_col) {
-    if (src_row >= 0 && src_row < BOARD_SIZE && src_col >= 0 && src_col <
-        BOARD_SIZE && dst_row >= 0 && dst_row < BOARD_SIZE && dst_col >= 0 &&
-        dst_col < BOARD_SIZE) {
-        board[dst_row][dst_col] = board[src_row][src_col];
-        board[src_row][src_col] = Piece{PieceType::EMPTY, false};
+void Board::make_raw_move(const std::pair<int, int> &src_pos,
+                          const std::pair<int, int> &dst_pos) {
+    if (src_pos.first >= 0 && src_pos.first < BOARD_SIZE &&
+        src_pos.second >= 0 && src_pos.second < BOARD_SIZE &&
+        dst_pos.first >= 0 && dst_pos.first < BOARD_SIZE &&
+        dst_pos.second >= 0 && dst_pos.second < BOARD_SIZE) {
+        board[dst_pos.first][dst_pos.second] = board[src_pos.first][src_pos.
+            second];
+        board[src_pos.first][src_pos.second] = Piece{
+            PieceType::EMPTY, false
+        };
     } else {
         const std::string error_msg =
                 "Invalid row or col specified (board size: " +
@@ -95,4 +102,17 @@ void Board::make_raw_move(const int &src_row, const int &src_col,
                 ")";
         throw std::out_of_range(error_msg);
     }
+}
+
+std::vector<std::pair<int, int> > Board::find_piece(const Piece &piece) const {
+    std::vector<std::pair<int, int> > result;
+    for (int i = 0; i < BOARD_SIZE; ++i) {
+        for (int j = 0; j < BOARD_SIZE; ++j) {
+            if (piece == board[i][j]) {
+                result.emplace_back(i, j);
+            }
+        }
+    }
+
+    return result;
 }

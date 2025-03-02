@@ -19,6 +19,8 @@ struct Piece {
 
     [[nodiscard]] std::string to_string() const;
     [[nodiscard]] bool is_empty() const;
+
+    bool operator==(const Piece &other) const;
 };
 
 #endif //PIECE_H
