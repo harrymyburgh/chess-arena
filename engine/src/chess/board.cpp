@@ -31,9 +31,10 @@ Piece Board::get_piece(const std::pair<int, int> &pos) const {
         second < BOARD_SIZE) {
         return board[pos.first][pos.second];
     }
-    const std::string error_msg =
-            "Invalid row or column specified (board size: " +
-            std::to_string(BOARD_SIZE) + "x" + std::to_string(BOARD_SIZE) + ")";
+    const std::string error_msg{
+        "Invalid row or column specified (board size: " +
+        std::to_string(BOARD_SIZE) + "x" + std::to_string(BOARD_SIZE) + ")"
+    };
     throw std::out_of_range(error_msg);
 }
 
@@ -42,16 +43,16 @@ void Board::set_piece(const std::pair<int, int> &pos, const Piece &piece) {
         second < BOARD_SIZE) {
         board[pos.first][pos.second] = piece;
     } else {
-        const std::string error_msg =
-                "Invalid row or column specified (board size: " +
-                std::to_string(BOARD_SIZE) + "x" + std::to_string(BOARD_SIZE) +
-                ")";
+        const std::string error_msg{
+            "Invalid row or column specified (board size: " +
+            std::to_string(BOARD_SIZE) + "x" + std::to_string(BOARD_SIZE) + ")"
+        };
         throw std::out_of_range(error_msg);
     }
 }
 
 std::string Board::to_string() const {
-    std::string result = "  ┌";
+    std::string result{"  ┌"};
 
     for (int i = 0; i < BOARD_SIZE * 2 + 1; ++i) {
         result += "─";
@@ -105,7 +106,7 @@ void Board::make_raw_move(const std::pair<int, int> &src_pos,
 }
 
 std::vector<std::pair<int, int> > Board::find_piece(const Piece &piece) const {
-    std::vector<std::pair<int, int> > result;
+    std::vector<std::pair<int, int> > result{};
     for (int i = 0; i < BOARD_SIZE; ++i) {
         for (int j = 0; j < BOARD_SIZE; ++j) {
             if (piece == board[i][j]) {
@@ -115,4 +116,93 @@ std::vector<std::pair<int, int> > Board::find_piece(const Piece &piece) const {
     }
 
     return result;
+}
+
+// capture moves only might be a better word var name?
+std::vector<std::pair<int, int> > Board::get_valid_moves(
+    const std::pair<int, int> &pos, const bool &attack_moves_only,
+    const bool &validate_pin) {
+    std::vector<std::pair<int, int> > moves{};
+    auto &[row, col]{pos};
+    Piece &piece{board[row][col]};
+
+    // Helper function for checking bounds of a row and column.
+    auto is_inside = [](const int &r, const int &c) {
+        return (0 <= r && r < BOARD_SIZE) && (0 <= c && c < BOARD_SIZE);
+    };
+
+    switch (piece) {
+        // ---------------------- Empty Square ----------------------
+        case PieceType::EMPTY:
+            return moves;
+
+        // ----------------------- Pawn Moves -----------------------
+        case PieceType::PAWN:
+            // For white pawns, they move upward (i.e. decreasing row index);
+            // for black pawns, they move downward.
+            const int direction = piece.isWhite ? -1 : 1;
+            const int start_row = piece.isWhite ? 6 : 1;
+
+            if (!attack_moves_only) {
+                // Move forward one.
+                if (const int forward{row + direction};
+                    is_inside(forward, col) && board[forward][col].is_empty()) {
+                    moves.emplace_back(forward, col);
+                    // If on starting rank, pawn can move two squares forward.
+                    if (row == start_row) {
+                        if (const int forward2{row + 2 * direction};
+                            is_inside(forward2, col) && board[forward2][col].
+                            is_empty()) {
+                            moves.emplace_back(forward2, col);
+                        }
+                    }
+                }
+            }
+
+            for (const int &dc: std::array{-1, 1}) {
+                if (int new_c{col + dc}, new_r{row + direction}; is_inside(
+                    new_r, new_c)) {
+                    if (Piece &target{board[new_r][new_c]};
+                        !target.is_empty() && target.isWhite != piece.isWhite) {
+                        moves.emplace_back(new_r, new_c);
+                    }
+                    // Check en passant: if en_passant is set and matches the candidate square.
+                    if (!en_passant.has_value()) {
+                        if (new_r == en_passant->first && new_c == en_passant->
+                            second) {
+                            moves.emplace_back(new_r, new_c);
+                        }
+                    }
+                }
+            }
+            break;
+
+        // ----------------------- Knight Moves -----------------------
+        case PieceType::KNIGHT:
+            std::array knight_offsets{
+                std::make_pair(2, 1),
+                std::make_pair(2, -1),
+                std::make_pair(-2, 1),
+                std::make_pair(-2, -1),
+                std::make_pair(1, 2),
+                std::make_pair(1, -2),
+                std::make_pair(-1, 2),
+                std::make_pair(-1, -2),
+            };
+
+            for (const auto &[dr, dc]: knight_offsets) {
+                if (int new_r{row + dr}, new_c{col + dc}; is_inside(
+                    new_r, new_c)) {
+                    if (Piece &target{board[new_r][new_c]};
+                        target.is_empty() || target.isWhite != piece.isWhite) {
+                        moves.emplace_back(new_r, new_c);
+                    }
+                }
+            }
+            break;
+
+        // ------------------------ Rook Moves ------------------------
+        default:
+            throw std::domain_error("Unknown piece type");
+    }
 }
