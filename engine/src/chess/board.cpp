@@ -131,13 +131,13 @@ std::vector<std::pair<int, int> > Board::get_valid_moves(
         return (0 <= r && r < BOARD_SIZE) && (0 <= c && c < BOARD_SIZE);
     };
 
-    switch (piece) {
+    switch (piece.type) {
         // ---------------------- Empty Square ----------------------
         case PieceType::EMPTY:
             return moves;
 
         // ----------------------- Pawn Moves -----------------------
-        case PieceType::PAWN:
+        case PieceType::PAWN: {
             // For white pawns, they move upward (i.e. decreasing row index);
             // for black pawns, they move downward.
             const int direction = piece.isWhite ? -1 : 1;
@@ -154,9 +154,9 @@ std::vector<std::pair<int, int> > Board::get_valid_moves(
                             is_inside(forward2, col) && board[forward2][col].
                             is_empty()) {
                             moves.emplace_back(forward2, col);
-                        }
+                            }
                     }
-                }
+                    }
             }
 
             for (const int &dc: std::array{-1, 1}) {
@@ -165,21 +165,22 @@ std::vector<std::pair<int, int> > Board::get_valid_moves(
                     if (Piece &target{board[new_r][new_c]};
                         !target.is_empty() && target.isWhite != piece.isWhite) {
                         moves.emplace_back(new_r, new_c);
-                    }
+                        }
                     // Check en passant: if en_passant is set and matches the candidate square.
                     if (!en_passant.has_value()) {
                         if (new_r == en_passant->first && new_c == en_passant->
                             second) {
                             moves.emplace_back(new_r, new_c);
-                        }
+                            }
                     }
-                }
+                    }
             }
             break;
+        }
 
         // ----------------------- Knight Moves -----------------------
-        case PieceType::KNIGHT:
-            std::array knight_offsets{
+        case PieceType::KNIGHT: {
+            constexpr std::array knight_offsets{
                 std::make_pair(2, 1),
                 std::make_pair(2, -1),
                 std::make_pair(-2, 1),
@@ -187,7 +188,7 @@ std::vector<std::pair<int, int> > Board::get_valid_moves(
                 std::make_pair(1, 2),
                 std::make_pair(1, -2),
                 std::make_pair(-1, 2),
-                std::make_pair(-1, -2),
+                std::make_pair(-1, -2)
             };
 
             for (const auto &[dr, dc]: knight_offsets) {
@@ -196,12 +197,25 @@ std::vector<std::pair<int, int> > Board::get_valid_moves(
                     if (Piece &target{board[new_r][new_c]};
                         target.is_empty() || target.isWhite != piece.isWhite) {
                         moves.emplace_back(new_r, new_c);
+                        }
                     }
-                }
             }
             break;
+        }
 
         // ------------------------ Rook Moves ------------------------
+        case PieceType::ROOK: {
+            constexpr std::array directions{
+                std::make_pair(-1, 0),
+                std::make_pair(1, 0),
+                std::make_pair(0, -1),
+                std::make_pair(0, -1)
+            };
+            for (const auto &[dr, dc]: directions) {
+                // TODO
+            }
+            break;
+        }
         default:
             throw std::domain_error("Unknown piece type");
     }
