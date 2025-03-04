@@ -1,6 +1,5 @@
 #include <algorithm>
 #include <vector>
-
 #include "board.h"
 
 Board::Board() {
@@ -154,9 +153,9 @@ std::vector<std::pair<int, int> > Board::get_valid_moves(
                             is_inside(forward2, col) && board[forward2][col].
                             is_empty()) {
                             moves.emplace_back(forward2, col);
-                            }
+                        }
                     }
-                    }
+                }
             }
 
             for (const int &dc: std::array{-1, 1}) {
@@ -165,30 +164,32 @@ std::vector<std::pair<int, int> > Board::get_valid_moves(
                     if (Piece &target{board[new_r][new_c]};
                         !target.is_empty() && target.isWhite != piece.isWhite) {
                         moves.emplace_back(new_r, new_c);
-                        }
+                    }
                     // Check en passant: if en_passant is set and matches the candidate square.
                     if (!en_passant.has_value()) {
                         if (new_r == en_passant->first && new_c == en_passant->
                             second) {
                             moves.emplace_back(new_r, new_c);
-                            }
+                        }
                     }
-                    }
+                }
             }
             break;
         }
 
         // ----------------------- Knight Moves -----------------------
         case PieceType::KNIGHT: {
-            constexpr std::array knight_offsets{
-                std::make_pair(2, 1),
-                std::make_pair(2, -1),
-                std::make_pair(-2, 1),
-                std::make_pair(-2, -1),
-                std::make_pair(1, 2),
-                std::make_pair(1, -2),
-                std::make_pair(-1, 2),
-                std::make_pair(-1, -2)
+            constexpr std::array<std::pair<int, int>, 8> knight_offsets{
+                {
+                    {2, 1},
+                    {2, -1},
+                    {-2, 1},
+                    {-2, -1},
+                    {1, 2},
+                    {1, -2},
+                    {-1, 2},
+                    {-1, -2}
+                }
             };
 
             for (const auto &[dr, dc]: knight_offsets) {
@@ -197,25 +198,96 @@ std::vector<std::pair<int, int> > Board::get_valid_moves(
                     if (Piece &target{board[new_r][new_c]};
                         target.is_empty() || target.isWhite != piece.isWhite) {
                         moves.emplace_back(new_r, new_c);
-                        }
                     }
+                }
             }
             break;
         }
 
         // ------------------------ Rook Moves ------------------------
-        case PieceType::ROOK: {
-            constexpr std::array directions{
-                std::make_pair(-1, 0),
-                std::make_pair(1, 0),
-                std::make_pair(0, -1),
-                std::make_pair(0, -1)
+        case PieceType::ROOK:
+            [[fallthrough]];
+        // ----------------------- Bishop Moves -----------------------
+        case PieceType::BISHOP:
+            [[fallthrough]];
+        // ----------------------- Queen Moves ------------------------
+        case PieceType::QUEEN: {
+            constexpr std::array<std::pair<int, int>, 4> rank_file_directions{
+                {
+                    {-1, 0},
+                    {1, 0},
+                    {0, -1},
+                    {0, 1}
+                }
             };
-            for (const auto &[dr, dc]: directions) {
-                // TODO
+            constexpr std::array<std::pair<int, int>, 4> diag_directions{
+                {
+                    {-1, -1},
+                    {-1, 1},
+                    {1, -1},
+                    {1, 1}
+                }
+            };
+
+            std::vector<const std::array<std::pair<int, int>, 4> *>
+                    direction_types;
+
+            if (piece.type == PieceType::ROOK || piece.type ==
+                PieceType::QUEEN) {
+                direction_types.push_back(&rank_file_directions);
+            }
+            if (piece.type == PieceType::BISHOP || piece.type ==
+                PieceType::QUEEN) {
+                direction_types.push_back(&diag_directions);
+            }
+
+            for (const auto *directions: direction_types) {
+                for (const auto &[dr, dc]: *directions) {
+                    int r{row}, c{col};
+
+                    while (true) {
+                        r += dr;
+                        c += dc;
+                        if (!is_inside(r, c)) {
+                            break;
+                        }
+                        if (Piece &target{board[r][c]}; target.is_empty()) {
+                            moves.emplace_back(r, c);
+                        } else if (target.isWhite != piece.isWhite) {
+                            moves.emplace_back(r, c);
+                            break;
+                        } else {
+                            break;
+                        }
+                    }
+                }
             }
             break;
         }
+        // ------------- King Moves (including castling) --------------
+        case PieceType::KING:
+            std::array<std::pair<int, int>, 8> king_offsets{
+                {
+                    {-1, -1},
+                    {-1, 0},
+                    {-1, 1},
+                    {0, -1},
+                    {0, 1},
+                    {1, -1},
+                    {1, 0},
+                    {1, 1}
+                }
+            };
+            for (const auto &[dr, dc]: king_offsets) {
+                if (int new_r{row + dr}, new_c{col + dc}; is_inside(
+                    new_r, new_c)) {
+                    Piece &target{board[new_r][new_c]};
+                    if (!target.is_empty() || target.isWhite != piece.isWhite) {
+                        moves.emplace_back(new_r, new_c);
+                    }
+                }
+            }
+            break;
         default:
             throw std::domain_error("Unknown piece type");
     }
