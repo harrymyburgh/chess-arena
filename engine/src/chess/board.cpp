@@ -1,5 +1,7 @@
 #include <algorithm>
 #include <vector>
+#include <ranges>
+
 #include "board.h"
 
 Board::Board() {
@@ -84,7 +86,7 @@ std::string Board::to_string() const {
     return result;
 }
 
-void Board::make_raw_move(const std::pair<int, int> &src_pos,
+void Board::make_move_raw(const std::pair<int, int> &src_pos,
                           const std::pair<int, int> &dst_pos) {
     if (src_pos.first >= 0 && src_pos.first < BOARD_SIZE &&
         src_pos.second >= 0 && src_pos.second < BOARD_SIZE &&
@@ -117,8 +119,7 @@ std::vector<std::pair<int, int> > Board::find_piece(const Piece &piece) const {
     return result;
 }
 
-// capture moves only might be a better word var name?
-std::vector<std::pair<int, int> > Board::get_valid_moves(
+std::vector<std::pair<int, int> > Board::get_valid_moves_raw(
     const std::pair<int, int> &pos, const bool &attack_moves_only,
     const bool &validate_pin) {
     std::vector<std::pair<int, int> > moves{};
@@ -265,7 +266,7 @@ std::vector<std::pair<int, int> > Board::get_valid_moves(
             break;
         }
         // ------------- King Moves (including castling) --------------
-        case PieceType::KING:
+        case PieceType::KING: {
             std::array<std::pair<int, int>, 8> king_offsets{
                 {
                     {-1, -1},
@@ -278,17 +279,69 @@ std::vector<std::pair<int, int> > Board::get_valid_moves(
                     {1, 1}
                 }
             };
+
             for (const auto &[dr, dc]: king_offsets) {
                 if (int new_r{row + dr}, new_c{col + dc}; is_inside(
                     new_r, new_c)) {
-                    Piece &target{board[new_r][new_c]};
-                    if (!target.is_empty() || target.isWhite != piece.isWhite) {
+                    if (Piece &target{board[new_r][new_c]};
+                        !target.is_empty() || target.isWhite != piece.isWhite) {
                         moves.emplace_back(new_r, new_c);
                     }
                 }
             }
+
+            if (!attack_moves_only) {
+                // For castling, we check that the king is at its starting square.
+                if (piece.isWhite && row == 7 && col == 4) {
+                    // White king-side castling: squares f1 and g1 must be empty
+                    // and the rook must be at h1.
+                    // TODO
+                }
+            }
             break;
+        }
         default:
             throw std::domain_error("Unknown piece type");
     }
+
+    return moves;
+}
+
+std::unordered_map<std::pair<int, int>, std::pair<Piece, std::vector<std::pair<
+    int, int> > > > Board::get_all_valid_moves_raw(
+    const bool &attack_moves_only, const bool &validate_pins) {
+    std::unordered_map<std::pair<int, int>, std::pair<Piece, std::vector<
+        std::pair<int, int> > > > moves{};
+    for (int i = 0; i < BOARD_SIZE; ++i) {
+        for (int j = 0; j < BOARD_SIZE; ++j) {
+            std::pair pos{i, j};
+            moves[pos] = std::make_pair(get_piece(pos),
+                                        get_valid_moves_raw(
+                                            pos, attack_moves_only,
+                                            validate_pins));
+        }
+    }
+    return moves;
+}
+
+bool Board::is_under_attack(const std::pair<int, int> &pos,
+                            const bool &white_is_attacking) {
+    for (std::unordered_map attacking_moves{
+             get_all_valid_moves_raw(true, false)
+         }; const auto &[fst, snd]: attacking_moves | std::views::values) {
+        if (fst.isWhite == white_is_attacking) {
+            if (std::ranges::find_if(snd, [&pos](const std::pair<int, int> &p) {
+                return p.first == pos.first && p.second == pos.second;
+            }) != snd.end()) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+bool Board::in_check(const bool &white) {
+    return is_under_attack(find_piece(Piece{PieceType::PAWN, white})[0],
+                           !white);
 }
