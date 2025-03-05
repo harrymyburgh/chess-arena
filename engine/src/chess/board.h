@@ -37,11 +37,18 @@ public:
     bool is_under_attack(const std::pair<int, int> &pos,
                          const bool &white_is_attacking);
 
+    bool is_under_attack(const std::vector<std::pair<int, int>> &positions,
+                         const bool &white_is_attacking, const bool &nor);
+
     bool in_check(const bool &white);
 
 private:
     std::array<std::array<Piece, BOARD_SIZE>, BOARD_SIZE> board{};
     std::optional<std::pair<int, int> > en_passant{};
+    bool white_king_side_castle{true};
+    bool white_queen_side_castle{true};
+    bool black_king_side_castle{true};
+    bool black_queen_side_castle{true};
 };
 
 #endif //BOARD_H

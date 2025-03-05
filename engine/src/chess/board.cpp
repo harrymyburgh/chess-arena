@@ -295,13 +295,75 @@ std::vector<std::pair<int, int> > Board::get_valid_moves_raw(
                 if (piece.isWhite && row == 7 && col == 4) {
                     // White king-side castling: squares f1 and g1 must be empty
                     // and the rook must be at h1.
-                    // TODO
+                    if (white_king_side_castle && board[7][5].is_empty() &&
+                        board[7][6].is_empty() &&
+                        board[7][7] == Piece{PieceType::ROOK, true} &&
+                        is_under_attack(
+                            std::vector{
+                                {
+                                    std::pair{7, 5},
+                                    std::pair{7, 6}
+                                }
+                            },
+                            false, true)) {
+                        moves.emplace_back(7, 6);
+                    }
+                    // White queen-side castling: squares d1, c1, and b1 must be empty
+                    // and the rook must be at a1.
+                    if (white_queen_side_castle && board[7][3].is_empty() &&
+                        board[7][2].is_empty() && board[7][1].is_empty() &&
+                        board[7][0] == Piece{PieceType::ROOK, true} &&
+                        is_under_attack(std::vector{
+                                            {
+                                                std::pair{7, 3},
+                                                std::pair{7, 2},
+                                                std::pair{7, 1}
+                                            }
+                                        }, false, true)) {
+                        moves.emplace_back(7, 2);
+                    }
+                    // Black king-side castling: squares f8 and g8 must be empty and
+                    // the rook must be at h8.
+                    if (black_king_side_castle && board[0][5].is_empty() &&
+                        board[0][6].is_empty() &&
+                        board[0][7] == Piece{PieceType::ROOK, false} &&
+                        is_under_attack(
+                            std::vector{
+                                {
+                                    std::pair{0, 5},
+                                    std::pair{0, 6}
+                                }
+                            },
+                            true, true)) {
+                        moves.emplace_back(0, 6);
+                    }
+                    // Black queenside castling: squares d8, c8, and b8 must be empty and
+                    // the rook must be at a8.
+                    if (white_queen_side_castle && board[0][3].is_empty() &&
+                        board[0][2].is_empty() && board[0][1].is_empty() &&
+                        board[0][0] == Piece{PieceType::ROOK, false} &&
+                        is_under_attack(std::vector{
+                                            {
+                                                std::pair{0, 3},
+                                                std::pair{0, 2},
+                                                std::pair{0, 1}
+                                            }
+                                        }, true, true)) {
+                        moves.emplace_back(0, 2);
+                    }
                 }
             }
             break;
         }
         default:
             throw std::domain_error("Unknown piece type");
+    }
+
+    // ----------------------- Pinned Piece Verification -----------------------
+    if (validate_pin) {
+        for (std::pair move : moves) {
+            // TODO (seems to be a bug here)
+        }
     }
 
     return moves;
@@ -339,6 +401,40 @@ bool Board::is_under_attack(const std::pair<int, int> &pos,
     }
 
     return false;
+}
+
+bool Board::is_under_attack(const std::vector<std::pair<int, int> > &positions,
+                            const bool &white_is_attacking, const bool &nor) {
+    bool result = true;
+    for (std::unordered_map attacking_moves{
+             get_all_valid_moves_raw(true, false)
+         }; const auto &[fst, snd]: attacking_moves | std::views::values) {
+        if (fst.isWhite == white_is_attacking) {
+            if (!nor) {
+                for (const auto &pos: positions) {
+                    if (std::ranges::find_if(
+                            snd, [&pos](const std::pair<int, int> &p) {
+                                return p.first == pos.first && p.second == pos.
+                                       second;
+                            }) == snd.end()) {
+                        result = false;
+                    }
+                }
+            } else {
+                for (const auto &pos: positions) {
+                    if (std::ranges::find_if(
+                            snd, [&pos](const std::pair<int, int> &p) {
+                                return p.first == pos.first && p.second == pos.
+                                       second;
+                            }) != snd.end()) {
+                        result = false;
+                    }
+                }
+            }
+        }
+    }
+
+    return result;
 }
 
 bool Board::in_check(const bool &white) {
