@@ -25,6 +25,11 @@ Board::Board() {
     board[7][3] = Piece{PieceType::QUEEN, true};
     board[7][4] = Piece{PieceType::KING, true};
     std::ranges::fill(board[6], Piece{PieceType::PAWN, true});
+
+    // Initialize control variables
+    white_king_side_castle = white_queen_side_castle =
+                             black_king_side_castle =
+                             black_queen_side_castle = true;
 }
 
 Piece Board::get_piece(const std::pair<int, int> &pos) const {
@@ -337,7 +342,7 @@ std::vector<std::pair<int, int> > Board::get_valid_moves_raw(
                             true, true)) {
                         moves.emplace_back(0, 6);
                     }
-                    // Black queenside castling: squares d8, c8, and b8 must be empty and
+                    // Black queen-side castling: squares d8, c8, and b8 must be empty and
                     // the rook must be at a8.
                     if (white_queen_side_castle && board[0][3].is_empty() &&
                         board[0][2].is_empty() && board[0][1].is_empty() &&
@@ -361,8 +366,22 @@ std::vector<std::pair<int, int> > Board::get_valid_moves_raw(
 
     // ----------------------- Pinned Piece Verification -----------------------
     if (validate_pin) {
-        for (std::pair move : moves) {
-            // TODO (seems to be a bug here)
+        int i = 0;
+        while (true) {
+            std::pair<int, int> &move = moves[i];
+
+            const Piece dest_piece = board[move.first][move.second];
+            make_move_raw(pos, move);
+            if (in_check(board[move.first][move.second].isWhite)) {
+                moves.erase(moves.begin() + i);
+            } else {
+                ++i;
+            }
+            make_move_raw(move, pos);
+            board[move.first][move.second] = dest_piece;
+            if (i >= moves.size()) {
+                break;
+            }
         }
     }
 

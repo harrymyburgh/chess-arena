@@ -45,10 +45,10 @@ public:
 private:
     std::array<std::array<Piece, BOARD_SIZE>, BOARD_SIZE> board{};
     std::optional<std::pair<int, int> > en_passant{};
-    bool white_king_side_castle{true};
-    bool white_queen_side_castle{true};
-    bool black_king_side_castle{true};
-    bool black_queen_side_castle{true};
+    bool white_king_side_castle{};
+    bool white_queen_side_castle{};
+    bool black_king_side_castle{};
+    bool black_queen_side_castle{};
 };
 
 #endif //BOARD_H
