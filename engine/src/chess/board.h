@@ -23,6 +23,10 @@ public:
     void make_move_raw(const std::pair<int, int> &src_pos,
                        const std::pair<int, int> &dst_pos);
 
+    void make_move(const std::pair<int, int> &src_pos,
+                   const std::pair<int, int> &dst_pos,
+                   std::optional<PieceType> promotion_piece);
+
     [[nodiscard]] std::vector<std::pair<int, int> > find_piece(
         const Piece &piece) const;
 
@@ -49,6 +53,7 @@ private:
     bool white_queen_side_castle{};
     bool black_king_side_castle{};
     bool black_queen_side_castle{};
+    bool white_turn{};
 };
 
 #endif //BOARD_H

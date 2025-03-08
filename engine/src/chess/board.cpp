@@ -30,6 +30,7 @@ Board::Board() {
     white_king_side_castle = white_queen_side_castle =
                              black_king_side_castle =
                              black_queen_side_castle = true;
+    white_turn = true;
 }
 
 Piece Board::get_piece(const std::pair<int, int> &pos) const {
@@ -103,12 +104,76 @@ void Board::make_move_raw(const std::pair<int, int> &src_pos,
             PieceType::EMPTY, false
         };
     } else {
-        const std::string error_msg =
-                "Invalid row or col specified (board size: " +
-                std::to_string(BOARD_SIZE) + "x" + std::to_string(BOARD_SIZE) +
-                ")";
+        const std::string error_msg{
+            "Invalid row or col specified (board size: " +
+            std::to_string(BOARD_SIZE) + "x" + std::to_string(BOARD_SIZE) +
+            ")"
+        };
         throw std::out_of_range(error_msg);
     }
+}
+
+void Board::make_move(const std::pair<int, int> &src_pos,
+                      const std::pair<int, int> &dst_pos,
+                      const std::optional<PieceType> promotion_piece =
+                              std::nullopt) {
+    if (src_pos.first < 0 || src_pos.first >= BOARD_SIZE ||
+        src_pos.second < 0 || src_pos.second >= BOARD_SIZE ||
+        dst_pos.first < 0 || dst_pos.first >= BOARD_SIZE ||
+        dst_pos.second < 0 || dst_pos.second >= BOARD_SIZE) {
+        const std::string error_msg{
+            "Invalid row or col specified (board size: " +
+            std::to_string(BOARD_SIZE) + "x" + std::to_string(BOARD_SIZE) +
+            ")"
+        };
+        throw std::out_of_range(error_msg);
+    }
+
+    if (src_pos.first == dst_pos.first && src_pos.second == dst_pos.second) {
+        const std::string error_msg{
+            "Cannot have a destination position that is the same as the start position"
+        };
+        throw std::out_of_range(error_msg);
+    }
+
+    if (promotion_piece.has_value()) {
+        if (promotion_piece.value() != PieceType::ROOK || promotion_piece.
+            value() != PieceType::KNIGHT || promotion_piece.value() !=
+            PieceType::BISHOP || promotion_piece.value() != PieceType::QUEEN) {
+            const std::string error_msg{"Invalid promotion piece specified"};
+            throw std::invalid_argument(error_msg);
+        }
+    }
+
+    if (board[src_pos.first][src_pos.second].type == PieceType::EMPTY) {
+        const std::string error_msg{"Empty start square specified"};
+        throw std::invalid_argument(error_msg);
+    }
+
+    if ((board[src_pos.first][src_pos.second].type == PieceType::PAWN && board[
+             src_pos.first][src_pos.second].isWhite && dst_pos.first == 0 && !
+         promotion_piece.has_value()) || (
+            board[src_pos.first][src_pos.second].type == PieceType::PAWN && !
+            board[src_pos.first][src_pos.second].isWhite && dst_pos.first == 7
+            && !promotion_piece.has_value())) {
+        const std::string error_msg{
+            "Promotion piece not specified for pawn promotion"
+        };
+        throw std::invalid_argument(error_msg);
+    }
+
+    if (board[src_pos.first][src_pos.second].isWhite != white_turn) {
+        const std::string error_msg{
+            "Cannot this color piece on this turn (white turn: " +
+            std::to_string(white_turn) + ", white piece: " + std::to_string(
+                board[src_pos.first][src_pos.second].isWhite) + ")"
+        };
+        throw std::invalid_argument(error_msg);
+    }
+
+    std::vector<std::pair<int, int> > valid_moves = get_valid_moves_raw(
+        src_pos, false, true);
+    // TODO continue with move logic
 }
 
 std::vector<std::pair<int, int> > Board::find_piece(const Piece &piece) const {
@@ -127,16 +192,25 @@ std::vector<std::pair<int, int> > Board::find_piece(const Piece &piece) const {
 std::vector<std::pair<int, int> > Board::get_valid_moves_raw(
     const std::pair<int, int> &pos, const bool &attack_moves_only,
     const bool &validate_pin) {
+    if (pos.first < 0 || pos.first >= BOARD_SIZE || pos.second < 0 || pos.
+        second >= BOARD_SIZE) {
+        const std::string error_msg{
+            "Invalid row or column specified (board size: " +
+            std::to_string(BOARD_SIZE) + "x" + std::to_string(BOARD_SIZE) + ")"
+        };
+        throw std::out_of_range(error_msg);
+    }
+
     std::vector<std::pair<int, int> > moves{};
     auto &[row, col]{pos};
-    Piece &piece{board[row][col]};
+    auto &[type, isWhite]{board[row][col]};
 
     // Helper function for checking bounds of a row and column.
     auto is_inside = [](const int &r, const int &c) {
         return (0 <= r && r < BOARD_SIZE) && (0 <= c && c < BOARD_SIZE);
     };
 
-    switch (piece.type) {
+    switch (type) {
         // ---------------------- Empty Square ----------------------
         case PieceType::EMPTY:
             return moves;
@@ -145,8 +219,8 @@ std::vector<std::pair<int, int> > Board::get_valid_moves_raw(
         case PieceType::PAWN: {
             // For white pawns, they move upward (i.e. decreasing row index);
             // for black pawns, they move downward.
-            const int direction = piece.isWhite ? -1 : 1;
-            const int start_row = piece.isWhite ? 6 : 1;
+            const int direction = isWhite ? -1 : 1;
+            const int start_row = isWhite ? 6 : 1;
 
             if (!attack_moves_only) {
                 // Move forward one.
@@ -168,7 +242,7 @@ std::vector<std::pair<int, int> > Board::get_valid_moves_raw(
                 if (int new_c{col + dc}, new_r{row + direction}; is_inside(
                     new_r, new_c)) {
                     if (Piece &target{board[new_r][new_c]};
-                        !target.is_empty() && target.isWhite != piece.isWhite) {
+                        !target.is_empty() && target.isWhite != isWhite) {
                         moves.emplace_back(new_r, new_c);
                     }
                     // Check en passant: if en_passant is set and matches the candidate square.
@@ -202,7 +276,7 @@ std::vector<std::pair<int, int> > Board::get_valid_moves_raw(
                 if (int new_r{row + dr}, new_c{col + dc}; is_inside(
                     new_r, new_c)) {
                     if (Piece &target{board[new_r][new_c]};
-                        target.is_empty() || target.isWhite != piece.isWhite) {
+                        target.is_empty() || target.isWhite != isWhite) {
                         moves.emplace_back(new_r, new_c);
                     }
                 }
@@ -238,11 +312,11 @@ std::vector<std::pair<int, int> > Board::get_valid_moves_raw(
             std::vector<const std::array<std::pair<int, int>, 4> *>
                     direction_types;
 
-            if (piece.type == PieceType::ROOK || piece.type ==
+            if (type == PieceType::ROOK || type ==
                 PieceType::QUEEN) {
                 direction_types.push_back(&rank_file_directions);
             }
-            if (piece.type == PieceType::BISHOP || piece.type ==
+            if (type == PieceType::BISHOP || type ==
                 PieceType::QUEEN) {
                 direction_types.push_back(&diag_directions);
             }
@@ -259,7 +333,7 @@ std::vector<std::pair<int, int> > Board::get_valid_moves_raw(
                         }
                         if (Piece &target{board[r][c]}; target.is_empty()) {
                             moves.emplace_back(r, c);
-                        } else if (target.isWhite != piece.isWhite) {
+                        } else if (target.isWhite != isWhite) {
                             moves.emplace_back(r, c);
                             break;
                         } else {
@@ -289,7 +363,7 @@ std::vector<std::pair<int, int> > Board::get_valid_moves_raw(
                 if (int new_r{row + dr}, new_c{col + dc}; is_inside(
                     new_r, new_c)) {
                     if (Piece &target{board[new_r][new_c]};
-                        !target.is_empty() || target.isWhite != piece.isWhite) {
+                        !target.is_empty() || target.isWhite != isWhite) {
                         moves.emplace_back(new_r, new_c);
                     }
                 }
@@ -297,7 +371,7 @@ std::vector<std::pair<int, int> > Board::get_valid_moves_raw(
 
             if (!attack_moves_only) {
                 // For castling, we check that the king is at its starting square.
-                if (piece.isWhite && row == 7 && col == 4) {
+                if (isWhite && row == 7 && col == 4) {
                     // White king-side castling: squares f1 and g1 must be empty
                     // and the rook must be at h1.
                     if (white_king_side_castle && board[7][5].is_empty() &&
@@ -366,11 +440,11 @@ std::vector<std::pair<int, int> > Board::get_valid_moves_raw(
 
     // ----------------------- Pinned Piece Verification -----------------------
     if (validate_pin) {
-        int i = 0;
+        int i{0};
         while (true) {
             std::pair<int, int> &move = moves[i];
 
-            const Piece dest_piece = board[move.first][move.second];
+            const Piece dest_piece{board[move.first][move.second]};
             make_move_raw(pos, move);
             if (in_check(board[move.first][move.second].isWhite)) {
                 moves.erase(moves.begin() + i);
